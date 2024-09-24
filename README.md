@@ -1,4 +1,4 @@
-# Manually provision and administer AWS EKS cluster to learn the tedious AWS console process before automating it later with Terraform
+# Detailed instructions on how to setup managed k8s aws-eks cluster with autoscaling manually with UI & CLI to learn the hard way :p
 
 In this chapter we provision and use an AWS EKS cluster via the AWS Management Console and the eksctl CLI tool to learn the manual process before later automating it with Terraform.
 
@@ -6,8 +6,11 @@ In this chapter we provision and use an AWS EKS cluster via the AWS Management C
 1. Provision an EKS cluster with IAM Roles, VPC for worker nodes with IGW & NAT Gateway & private & public subnets with associated route tables
 2. Create an EC2 NodeGroup with associated IAM rules, a deployed autoscaler and test scale up & scale down
 3. Create Serverless Fargate Managed Pods with IAM Role and pod selector criteria
-<b><u>The exercise projects are:</u></b>
+4. Provision the EKS cluster with NodeGroup (from step 1&2) with a single eksctl CLI tool command
+5. Integrate EKS cluster into a Jenkins CI/CD pipeline via custom Docker Image with aws & k8s dependencies installed
 
+<b><u>The exercise projects are:</u></b>
+1. wip
 
 ## Setup
 
@@ -213,4 +216,71 @@ kubectl delete ns dev-fargate
 
 </details>
 
+-----
+
+<details closed>
+<summary><b>4. Provision the EKS cluster with NodeGroup (from step 1&2) with a single eksctl CLI tool command</b></summary>
+
+#### a. Delete all resources created in prior steps
+
+#### b. Install eksctl
+```bash
+mkdir ~/eksinstall/ && cd ~/eksinstall/
+ARCH=amd64
+PLATFORM=$(uname -s)_$ARCH
+curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
+sudo mv /tmp/eksctl /usr/local/bin
+cd - && sudo rm -rf ~/eksinstall/
+```
+
+#### c. Create Cluster via CLI
+
+```bash
+eksctl create cluster \
+  --name aws-eksctl-cluster \
+  --version 1.30 \
+  --region eu-central-1 \
+  --nodegroup-name aws-eksctl-nodeGroup \
+  --node-type t2.small \
+  --nodes 2 \
+  --nodes-min 1 \
+  --nodes-max 3 \
+
+```
+
+</details>
+
+-----
+
+<details closed>
+<summary><b>5. Integrate EKS cluster into a Jenkins CI/CD pipeline via custom Docker Image with aws & k8s dependencies installed</b></summary>
+
+#### a. Build and Push a Docker container to ECR that includes aws-iam-authenticator and kubectl for jenkins to use as an agent
+```bash
+docker build -f Dockerfile -t aws-iam-auth-k8s:0.1 .
+docker tag aws-iam-auth-k8s:0.1 010928217051.dkr.ecr.eu-central-1.amazonaws.com/k8s-imgs:aws-iam-auth-k8s-0.1
+docker push 010928217051.dkr.ecr.eu-central-1.amazonaws.com/k8s-imgs:aws-iam-auth-k8s-0.1
+```
+
+#### b. Retrieve information about your cluster and add it to the aws-iam-auth config file
+- Change the endpoint url in `aws-iam-authenticator-config.yaml` at `clusters.cluster.server` to your own after retrieving it in the aws cli
+- Change the cluster name at the bottom under args in case you named your cluster something else other than in step 4c)
+- Retrieve `certificate-authority-data` from your kube/config that has been set up by eksctl after cluster creation and add it to `clusters.cluster.certificate-authority-data`
+
+```bash
+# retrieve endpoint url
+aws eks describe-cluster --name aws-eksctl-cluster --query 'cluster.endpoint'
+# retrieve certificate data for the cluster matching your endpoint url
+cat ~/.kube/config
+```
+
+#### c. asd
+
+```bash
+
+```
+
+
+</details>
 -----
