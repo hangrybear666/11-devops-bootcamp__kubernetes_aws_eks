@@ -5,7 +5,7 @@ In this chapter we provision and use an AWS EKS cluster via the AWS Management C
 <b><u>The course examples are:</u></b>
 1. Provision an EKS cluster with IAM Roles, VPC for worker nodes with IGW & NAT Gateway & private & public subnets with associated route tables
 2. Create an EC2 NodeGroup with associated IAM rules, a deployed autoscaler and test scale up & scale down
-
+3. Create Serverless Fargate Managed Pods with IAM Role and pod selector criteria
 <b><u>The exercise projects are:</u></b>
 
 
@@ -50,7 +50,7 @@ helmfile init
 <summary><b>1. Provision an EKS cluster with IAM Roles, VPC for worker nodes with IGW & NAT Gateway & private & public subnets with associated route tables</b></summary>
 
 #### a. Create IAM Role for EKS Cluster
-IAM -> Roles -> Create role -> AWS Service -> EKS -> EKS Cluster (Use Case) -> Next x3
+IAM -> Roles -> Create role -> AWS Service -> EKS -> EKS Cluster (Use Case) -> Name "aws-console-eks-cluster-role" -> Next x3
 
 #### b. Create VPC, Subnet, IGW, NAT Gateway, Security Group, Route Tables, Routes and Attachments with CloudFormation Template
 CloudFormation -> Create Stack -> Choose an existing template -> Amazon S3 URL -> https://s3.us-west-2.amazonaws.com/amazon-eks/cloudformation/2020-10-29/amazon-eks-vpc-private-subnets.yaml
@@ -183,6 +183,33 @@ kubectl logs deployment.apps/cluster-autoscaler -n kube-system
 kubectl get nodes
 ```
 
+
+</details>
+
+-----
+
+<details closed>
+<summary><b>3. Create Serverless Fargate Managed Pods with IAM Role and pod selector criteria</b></summary>
+
+#### a. Create IAM Role for EKS Fargate
+IAM -> Roles -> Create role -> AWS Service -> EKS -> EKS - Fargate Pod (Use Case) -> Name "aws-console-eks-fargate-pod-role" -> Next x3
+
+#### b. Create Fargate Profile in EKS Cluster
+EKS -> Clusters -> aws-console-eks-cluster -> Compute -> Add Fargate Profile -> Name "aws-console-eks-fargate-profile" -> Select Private Subnets -> Namespace "dev-fargate" -> Match Labels key:value = profile:fargate
+*NOTE:* Even though Fargate managed service runs in its own AWS VPC, our pods will have an internal IP address within our cluster, pulling from the private subnet CIDR range
+
+#### c. Deploy nginx with fargate namespace and label selectors
+
+*NOTE:* all pods are deployed in their own fargate node running in a separate VM
+```bash
+kubectl create ns dev-fargate
+kubectl apply -f nginx-deployment-fargate.yaml
+kubectl get pods -n dev-fargate -w
+kubectl get nodes
+# delete
+kubectl delete -f nginx-deployment-fargate.yaml
+kubectl delete ns dev-fargate
+```
 
 </details>
 
