@@ -3,8 +3,8 @@
 In this chapter we provision and use an AWS EKS cluster via the AWS Management Console and the eksctl CLI tool to learn the manual process before later automating it with Terraform.
 
 <b><u>The course examples are:</u></b>
-1. Provision an EKS cluster with IAM Roles, VPC for worker nodes with IGW & NAT Gateway & private & public subnets with associated route tables, an EC2 NodeGroup with associated IAM rules and autoscaling enabled
-2. 
+1. Provision an EKS cluster with IAM Roles, VPC for worker nodes with IGW & NAT Gateway & private & public subnets with associated route tables
+2. Create an EC2 NodeGroup with associated IAM rules, a deployed autoscaler and test scale up & scale down
 
 <b><u>The exercise projects are:</u></b>
 
@@ -47,7 +47,7 @@ helmfile init
 ## Usage (course examples)
 
 <details closed>
-<summary><b>1. Provision an EKS cluster with IAM Roles, VPC for worker nodes with IGW & NAT Gateway & private & public subnets with associated route tables, an EC2 NodeGroup with associated IAM rules and autoscaling enabled</b></summary>
+<summary><b>1. Provision an EKS cluster with IAM Roles, VPC for worker nodes with IGW & NAT Gateway & private & public subnets with associated route tables</b></summary>
 
 #### a. Create IAM Role for EKS Cluster
 IAM -> Roles -> Create role -> AWS Service -> EKS -> EKS Cluster (Use Case) -> Next x3
@@ -65,9 +65,6 @@ CloudFormation -> Create Stack -> Choose an existing template -> Amazon S3 URL -
 - The NAT gateway forwards the request to the IGW for outbound internet access, while keeping instances in the private subnet closed off for ingress.
 - There are two private route tables because each private subnet routes internet-bound traffic through a different NAT Gateway. This allows for high availability and redundancy across multiple Availability Zones (AZs).
 - A security group is created for controlling communication between the EKS control plane and worker nodes.
-
-<details closed>
-<summary><b>Click</b> for all resources to be created</summary>
 
 #### VPC and Networking
 - **VPC**
@@ -99,10 +96,8 @@ CloudFormation -> Create Stack -> Choose an existing template -> Amazon S3 URL -
 ### Security
 - **Control Plane Security Group**
 
-</details>
-
 #### c. Save Outputs for EKS creation
-Navigate to *Cloudformation -> "aws-console-eks-vpc-stack" -> Outputs* and note down the `VpcId` and `SecurityGroup` e.g. vpc-04949f5326907d10f sg-0fbe7eccb24716e60
+Navigate to *Cloudformation -> "aws-console-eks-vpc-stack" -> Outputs* and note down the `VpcId` and `SecurityGroup` e.g. `vpc-04949f5326907d10f` & `sg-0fbe7eccb24716e60`
 
 #### d. Create EKS cluster from management console
 EKS -> Clusters -> Create EKS cluster -> Name: "aws-console-eks-cluster" -> Upgrade policy = Standard -> Secrets encryption (NO) -> Next -> VPC ID from step c) -> Select all subnets -> Security Group from step c) -> Cluster endpoint access = Public and Private -> Control plane logging (NONE) -> Prometheus Metrics (NONE) -> EKS Addons (kube-proxy, Amazon VPC CNI, CoreDNS) -> Next -> Create
@@ -116,23 +111,29 @@ cat ~/.kube/config
 kubectl cluster-info
 ```
 
-#### f. Create IAM Roles and Permissions for NodeGroups
+</details>
+
+-----
+<details closed>
+<summary><b>2. Create an EC2 NodeGroup with associated IAM rules, a deployed autoscaler and test scale up & scale down</b></summary>
+
+#### a. Create IAM Roles and Permissions for NodeGroups
 IAM -> Roles -> Create Role -> Aws Service -> User Case (EC2) -> Add permission -> AmazonEKSWorkerNodePolicy & AmazonEC2ContainerRegistryReadOnly & AmazonEKS_CNI_Policy -> Role Name "aws-console-eks-ec2-nodegroup-policy" -> Create Role
 
 *Note* See https://docs.aws.amazon.com/eks/latest/userguide/create-node-role.html for additional documentation
 
-#### g. Create Security Group for SSH Access to Worker Nodes from restricted IPs
+#### b. Create Security Group for SSH Access to Worker Nodes from restricted IPs
 Security Groups -> Name "aws-console-eks-nodegroup-ssh-access" -> Select EKS VPC -> Inbound Rule (SSH) Port 22 with only my IP e.g. 3.79.46.109/32 -> Outbound Rule (Delete)
 
-#### h. Create Node Group with preinstalled container runtime and kubernetes dependencies
+#### c. Create Node Group with preinstalled container runtime and kubernetes dependencies
 EKS -> Clusters -> aws-console-eks-cluster -> Compute -> Add Node Group -> Name "aws-console-eks-ec2-node-group" -> Attach IAM role from step f) -> Amazon Linux 2 -> On-Demand -> t2.small -> 10GiB Disk size -> Desired size 3 / Minimum size 2 / Maximum size 3 / Maximum unavailable 1 -> Configure Remote Access (Yes) -> Allow remote access from selected Security Group from step g)
 
-#### i. Configure Autoscaling by setting up a custom IAM policy
+#### d. Configure Autoscaling by setting up a custom IAM policy
 IAM -> Policies -> Create policy -> JSON -> Name "aws-console-eks-nodegroupAutoscalerPolicy" -> Create Policy -> Attach Policy -> aws-console-eks-ec2-nodegroup-policy
 Apply the code from `autoscalingPermissions.json` but be sure to check the following documentation in case the Policies have changed:
  https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md#full-cluster-autoscaler-features-policy-recommended
 
-#### j. Deploy Autoscaler in EKS clusters kube-system namespace
+#### e. Deploy Autoscaler in EKS clusters kube-system namespace
 
 - Check for newest yaml file here and overwrite the local `cluster-autoscaler-autodiscover.yaml` file: https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover.yaml
 - Then replace the version tag of the autoscaler image with the corresponding version of your kubernetes cluster. You can find your cluster version by checking in AWS Console at EKS -> Clusters -> aws-console-eks-cluster
@@ -147,15 +148,42 @@ kubectl get all -n kube-system
 kubectl get nodes
 ```
 
-#### k. Scale Down NodeGroup by decreasing the desired size
+#### f. Scale Down NodeGroup by decreasing the desired size to 1
 
 Change the desired size to e.g. 1 and check the autoscaler logs for changes.
+
 EKS -> Clusters -> aws-console-eks-cluster -> Node groups -> aws-console-eks-ec2-node-group -> Edit node group
 ```bash
 # replace with your pod id
-kubectl logs pod/cluster-autoscaler-69c8b5b488-gmvtz -n kube-system
+kubectl logs deployment.apps/cluster-autoscaler -n kube-system
+kubectl get nodes -w # watch continuously
+```
+
+#### g. Create nginx deployment with LoadBalancer to check public availability of Pod Service
+
+The following deployment automatically creates a publicly available Load Balancer under EC2 -> Load balancers which is situated in both public subnets (where individual nodes reside in either one)
+```bash
+kubectl apply -f nginx-deployment.yaml
+```
+
+Navigate to your Load Balancer public DNS name and check ingress capability.
+
+ #### h. Create 30 replicas of nginx to check scale up, then delete pods to watch scale down
+
+Then change replica count to 30 in `nginx-deployment.yaml` and run the apply command again. The autoscaler should now provision up to the maximum number of nodes (3) in order to start all pods.
+```bash
+# change replicas to 30
+kubectl apply -f nginx-deployment.yaml
+kubectl logs deployment.apps/cluster-autoscaler -n kube-system
+kubectl get pods -w # watch continuously
+kubectl get nodes
+# clean up and watch scale down
+kubectl delete -f nginx-deployment.yaml
+kubectl logs deployment.apps/cluster-autoscaler -n kube-system
 kubectl get nodes
 ```
+
+
 </details>
 
 -----
