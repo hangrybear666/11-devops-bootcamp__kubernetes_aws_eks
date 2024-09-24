@@ -275,7 +275,18 @@ aws eks describe-cluster --name aws-eksctl-cluster --query 'cluster.endpoint'
 cat ~/.kube/config
 ```
 
-#### c. asd
+#### c. Configure Credentials on Jenkins for AWS, Git, Docker Hub, and Kubernetes
+
+- Create Username:Password with the id `docker-hub-repo` containing your user and API Token as password
+- Create Username:Password with the id `git-creds` with either your username or jenkins and an API Token as password
+- Create Secret Text with the id `aws_access_key_id` with your AWS IAM Account's Access Key ID (or better a dedicated Jenkins IAM Account)
+- Create Secret Text with the id `aws_secret_access_key` with your AWS IAM Account's Secret Access Key (or better a dedicated Jenkins IAM Account)
+- Create Secret File with the id `aws-iam-authenticator-config` with your updated `aws-iam-authenticator-config.yaml` from step b)
+
+```bash
+```
+
+#### d.
 
 ```bash
 

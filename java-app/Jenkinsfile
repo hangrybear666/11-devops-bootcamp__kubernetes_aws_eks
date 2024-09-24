@@ -1,0 +1,87 @@
+#!/user/bin/env groovy
+
+library identifier: ' 08-devops-bootcamp__jenkins@main', retriever: modernSCM(
+    scm: [$class: 'GitSCMSource',
+    credentialsId: 'git-creds',
+    remote: 'https://github.com/hangrybear666/08-devops-bootcamp__jenkins.git',
+    traits: [gitBranchDiscovery()]],
+    libraryPath: 'jenkins-shared-library/')
+def groovyScript
+
+pipeline {
+    agent linux
+    tools {
+        maven 'Maven'
+    }
+    parameters {
+        text(name: 'DOCKER_HUB_REPO_URL', defaultValue: 'hangrybear/devops_bootcamp', description: 'Enter your own docker hub repository')
+    }
+    stages {
+        stage('increment version') {
+            steps {
+                dir("java-app") {
+                    script {
+                        echo 'incrementing app version...'
+                        sh 'mvn build-helper:parse-version versions:set \
+                            -DnewVersion=\\\${parsedVersion.majorVersion}.\\\${parsedVersion.minorVersion}.\\\${parsedVersion.nextIncrementalVersion} \
+                            versions:commit'
+                        def matcher = readFile('pom.xml') =~ '<version>(.+)</version>'
+                        def version = matcher[0][1]
+                        env.VERSION_NUM = "$version-$BUILD_NUMBER"
+                    }
+                }
+            }
+        }
+        stage('build app') {
+            steps {
+                dir("java-app") {
+                    script {
+                        // using jenkins shared library groovy scripts in /jenkins-shared-library/vars
+                        buildJar()
+                    }
+                }
+            }
+        }
+        stage('build image') {
+            steps {
+                dir("java-app") {
+                    script {
+                        withCredentials([usernamePassword(credentialsId: 'docker-hub-repo', usernameVariable: 'USER', passwordVariable: 'PASS')]){
+                            // using jenkins shared library groovy scripts extended themselves by a groovy Docker class in /jenkins-shared-library
+                            buildImage("${DOCKER_HUB_REPO_URL}", "${VERSION_NUM}")
+                            dockerLogin()
+                            dockerPush()
+                        }
+                    }
+                }
+            }
+        }
+        stage('deploy') {
+            environment {
+                AWS_ACCESS_KEY_ID = credentials('jenkins_aws_access_key_id')
+                AWS_SECRET_ACCESS_KEY = credentials('jenkins-aws_secret_access_key')
+            }
+            steps {
+                script {
+                    sh 'kubectl apply -f nginx-deployment.yaml'
+                }
+            }
+        }
+        stage('commit version update'){
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'git-creds', passwordVariable: 'PASS', usernameVariable: 'USER')]){
+                        sh 'git config --global user.email "jenkins@example.com"'
+                        sh 'git config --global user.name "jenkins"'
+
+                        sh "git remote set-url origin https://${USER}:${PASS}@github.com/hangrybear666/11-devops-bootcamp__kubernetes_aws_eks.git"
+                        sh 'git add .'
+                        sh 'git commit -m "Jenkins Bot: java-app version bump"'
+                        sh 'git push origin HEAD:jenkins-jobs'
+                    }
+                }
+            }
+        }
+    }
+}
+
