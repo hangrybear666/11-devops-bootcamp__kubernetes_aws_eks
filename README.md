@@ -277,18 +277,20 @@ cat ~/.kube/config
 
 #### c. Configure Credentials on Jenkins for AWS, Git, Docker Hub, and Kubernetes
 
+**Create Secrets**
 - Create Username:Password with the id `docker-hub-repo` containing your user and API Token as password
 - Create Username:Password with the id `git-creds` with either your username or jenkins and an API Token as password
 - Create Secret Text with the id `aws_access_key_id` with your AWS IAM Account's Access Key ID (or better a dedicated Jenkins IAM Account)
 - Create Secret Text with the id `aws_secret_access_key` with your AWS IAM Account's Secret Access Key (or better a dedicated Jenkins IAM Account)
-- Create Secret File with the id `aws-iam-authenticator-config` with your updated `aws-iam-authenticator-config.yaml` from step b)
+- Create Secret File with the id `aws-iam-authenticator-config` with your updated `aws-iam-authenticator-config.yaml` from step b) acting as your .kube/config file
 
+**Configure Jenkins/file**
 - Add Maven Plugin under Manage Jenkins -> Tools -> Maven and name it Maven.
 - Change DOCKER_HUB_REPO_URL in Jenkins UI Parameters or the Jenkinsfile to your own
 
 #### d. Create multibranch Jenkins Pipeline with this repository as source and Jenkinsfile located in java-app/Jenkinsfile
 
-- Start multibranch pipeline build with parameters supplying your DOCKER HUB REPO URL
+
 #### e.
 
 ```bash

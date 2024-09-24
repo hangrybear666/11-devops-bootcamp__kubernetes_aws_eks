@@ -58,11 +58,17 @@ pipeline {
         }
         stage('deploy') {
             environment {
-                AWS_ACCESS_KEY_ID = credentials('jenkins_aws_access_key_id')
-                AWS_SECRET_ACCESS_KEY = credentials('jenkins-aws_secret_access_key')
+                AWS_ACCESS_KEY_ID = credentials('aws_access_key_id')
+                AWS_SECRET_ACCESS_KEY = credentials('aws_secret_access_key')
+                // AWS_IAM_AUTH_SECRET_FILE = credentials('aws-iam-authenticator-config')
             }
             steps {
                 script {
+                    withCredentials([file(credentialsId: 'aws-iam-authenticator-config', variable: 'SECRET_FILE')]) {
+                        sh 'mkdir .kube'
+                        sh 'touch .kube/config'
+                        sh 'cat $SECRET_FILE > .kube/config'
+                    }
                     sh 'kubectl apply -f nginx-deployment.yaml'
                 }
             }
