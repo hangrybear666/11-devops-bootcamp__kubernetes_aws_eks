@@ -283,10 +283,13 @@ cat ~/.kube/config
 - Create Secret Text with the id `aws_secret_access_key` with your AWS IAM Account's Secret Access Key (or better a dedicated Jenkins IAM Account)
 - Create Secret File with the id `aws-iam-authenticator-config` with your updated `aws-iam-authenticator-config.yaml` from step b)
 
-```bash
-```
+- Add Maven Plugin under Manage Jenkins -> Tools -> Maven and name it Maven.
+- Change DOCKER_HUB_REPO_URL in Jenkins UI Parameters or the Jenkinsfile to your own
 
-#### d.
+#### d. Create multibranch Jenkins Pipeline with this repository as source and Jenkinsfile located in java-app/Jenkinsfile
+
+- Start multibranch pipeline build with parameters supplying your DOCKER HUB REPO URL
+#### e.
 
 ```bash
 

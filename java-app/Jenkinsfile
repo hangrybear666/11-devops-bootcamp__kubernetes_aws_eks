@@ -9,12 +9,12 @@ library identifier: ' 08-devops-bootcamp__jenkins@main', retriever: modernSCM(
 def groovyScript
 
 pipeline {
-    agent linux
+    agent any
     tools {
         maven 'Maven'
     }
-    parameters {
-        text(name: 'DOCKER_HUB_REPO_URL', defaultValue: 'hangrybear/devops_bootcamp', description: 'Enter your own docker hub repository')
+    environment {
+        DOCKER_HUB_REPO_URL='hangrybear666/personal-imgs'
     }
     stages {
         stage('increment version') {
