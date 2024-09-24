@@ -296,7 +296,8 @@ cat ~/.kube/config
 #### e.
 
 ```bash
-
+#debug
+ssh jenkins-runner@172.105.75.118
 ```
 
 

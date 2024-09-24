@@ -24,7 +24,7 @@ pipeline {
             steps {
                 script {
                     withCredentials([file(credentialsId: 'aws-iam-authenticator-config', variable: 'SECRET_FILE')]) {
-                        sh 'mkdir .kube'
+                        sh 'mkdir -p .kube'
                         sh 'touch .kube/config'
                         sh 'cat $SECRET_FILE > .kube/config'
                     }
@@ -36,7 +36,7 @@ pipeline {
                 script{
                     def awsIamAuthImg = docker.build("${env.AWS_IAM_AUTH_IMAGE_TAG}", "-f ./Dockerfile .")
 
-                    docker.withRegistry("${AWS_ECR_REPO_URL}",'aws-ecr-creds') {
+                    docker.withRegistry("https://${env.AWS_ECR_REPO_URL}",'aws-ecr-creds') {
                         awsIamAuthImg.push()
                     }
                 }
@@ -73,7 +73,7 @@ pipeline {
                     script {
                         withCredentials([usernamePassword(credentialsId: 'docker-hub-repo', usernameVariable: 'USER', passwordVariable: 'PASS')]){
                             // using jenkins shared library groovy scripts extended themselves by a groovy Docker class in /jenkins-shared-library
-                            buildImage("${DOCKER_HUB_REPO_URL}", "${VERSION_NUM}")
+                            buildImage("${env.DOCKER_HUB_REPO_URL}", "${env.VERSION_NUM}")
                             dockerLogin()
                             dockerPush()
                         }
@@ -88,15 +88,17 @@ pipeline {
             }
             agent {
                 docker {
-                    image "${AWS_IAM_AUTH_IMAGE_TAG}"
-                    registryUrl "${env.AWS_ECR_REPO_URL}"
+                    image "${env.AWS_IAM_AUTH_IMAGE_TAG}"
+                    registryUrl "https://${env.AWS_ECR_REPO_URL}"
                     registryCredentialsId 'aws-ecr-creds'
-                    args "-e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
+                    args "-v ${WORKSPACE}:/home/cli-user -e AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}"
                 }
             }
             steps {
                 script {
-                    sh 'kubectl apply -f nginx-deployment.yaml'
+                    sh """
+                    kubectl apply -f nginx-deployment.yaml --kubeconfig .kube/config
+                    """
                 }
             }
         }
