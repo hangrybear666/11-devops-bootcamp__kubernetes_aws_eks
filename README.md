@@ -280,6 +280,7 @@ cat ~/.kube/config
 **Create Secrets**
 - Create Username:Password with the id `docker-hub-repo` containing your user and API Token as password
 - Create Username:Password with the id `git-creds` with either your username or jenkins and an API Token as password
+- Create Username:Password with the id `aws-ecr-creds` with username `AWS` and the password received via `aws ecr get-login-password --region eu-central-1` command
 - Create Secret Text with the id `aws_access_key_id` with your AWS IAM Account's Access Key ID (or better a dedicated Jenkins IAM Account)
 - Create Secret Text with the id `aws_secret_access_key` with your AWS IAM Account's Secret Access Key (or better a dedicated Jenkins IAM Account)
 - Create Secret File with the id `aws-iam-authenticator-config` with your updated `aws-iam-authenticator-config.yaml` from step b) acting as your .kube/config file
@@ -290,6 +291,7 @@ cat ~/.kube/config
 
 #### d. Create multibranch Jenkins Pipeline with this repository as source and Jenkinsfile located in java-app/Jenkinsfile
 
+- Replace the environment variables in `java-app/Jenkinsfile` with your own repositories (Docker Hub / ECR)
 
 #### e.
 

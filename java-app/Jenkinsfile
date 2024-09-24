@@ -15,8 +15,33 @@ pipeline {
     }
     environment {
         DOCKER_HUB_REPO_URL='hangrybear666/personal-imgs'
+        AWS_ECR_REPO_URL='010928217051.dkr.ecr.eu-central-1.amazonaws.com/k8s-imgs'
+        AWS_IAM_AUTH_IMAGE_NAME='aws-iam-auth-k8s-0'
+        AWS_IAM_AUTH_IMAGE_TAG="${env.AWS_ECR_REPO_URL}:${env.AWS_IAM_AUTH_IMAGE_NAME}.${env.BUILD_ID}"
     }
     stages {
+        stage('init workspace') {
+            steps {
+                script {
+                    withCredentials([file(credentialsId: 'aws-iam-authenticator-config', variable: 'SECRET_FILE')]) {
+                        sh 'mkdir .kube'
+                        sh 'touch .kube/config'
+                        sh 'cat $SECRET_FILE > .kube/config'
+                    }
+                }
+            }
+        }
+        stage('Build AWS & K8S Image') {
+            steps {
+                script{
+                    def awsIamAuthImg = docker.build("${env.AWS_IAM_AUTH_IMAGE_TAG}", "-f ./Dockerfile .")
+
+                    docker.withRegistry("${AWS_ECR_REPO_URL}",'aws-ecr-creds') {
+                        awsIamAuthImg.push()
+                    }
+                }
+            }
+        }
         stage('increment version') {
             steps {
                 dir("java-app") {
@@ -56,19 +81,21 @@ pipeline {
                 }
             }
         }
-        stage('deploy') {
+        stage('deploy to k8s') {
             environment {
                 AWS_ACCESS_KEY_ID = credentials('aws_access_key_id')
                 AWS_SECRET_ACCESS_KEY = credentials('aws_secret_access_key')
-                // AWS_IAM_AUTH_SECRET_FILE = credentials('aws-iam-authenticator-config')
+            }
+            agent {
+                docker {
+                    image "${AWS_IAM_AUTH_IMAGE_TAG}"
+                    registryUrl "${env.AWS_ECR_REPO_URL}"
+                    registryCredentialsId 'aws-ecr-creds'
+                    args "-e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
+                }
             }
             steps {
                 script {
-                    withCredentials([file(credentialsId: 'aws-iam-authenticator-config', variable: 'SECRET_FILE')]) {
-                        sh 'mkdir .kube'
-                        sh 'touch .kube/config'
-                        sh 'cat $SECRET_FILE > .kube/config'
-                    }
                     sh 'kubectl apply -f nginx-deployment.yaml'
                 }
             }
