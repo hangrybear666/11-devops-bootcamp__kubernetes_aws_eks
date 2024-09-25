@@ -259,7 +259,7 @@ eksctl create cluster \
 #### a. Retrieve information about your cluster and add it to the aws-iam-auth config file
 - Change the endpoint url in `aws-iam-authenticator-config.yaml` at `clusters.cluster.server` to your own after retrieving it in the aws cli
 - Change the cluster name at the bottom under args in case you named your cluster something else other than in step 4c)
-- Retrieve `certificate-authority-data` from your kube/config that has been set up by eksctl after cluster creation and add it to `clusters.cluster.certificate-authority-data`
+- Retrieve `certificate-authority-data` from your ~/.kube/config that has been set up by eksctl after cluster creation and add it to `clusters.cluster.certificate-authority-data`
 
 ```bash
 # retrieve endpoint url
@@ -268,19 +268,27 @@ aws eks describe-cluster --name aws-eksctl-cluster --query 'cluster.endpoint'
 cat ~/.kube/config
 ```
 
-#### b. Configure Credentials on Jenkins for AWS, Git, Docker Hub, and Kubernetes
+#### b. Configure Jenkins for AWS, Git, Docker Hub, and Kubernetes
 
 **Create Secrets**
 - Create Username:Password with the id `docker-hub-repo` containing your user and API Token as password
 - Create Username:Password with the id `git-creds` with either your username or jenkins and an API Token as password
-- Create Username:Password with the id `aws-ecr-creds` with username `AWS` and the password received via `aws ecr get-login-password --region eu-central-1` command
 - Create Secret Text with the id `aws_access_key_id` with your AWS IAM Account's Access Key ID (or better a dedicated Jenkins IAM Account)
 - Create Secret Text with the id `aws_secret_access_key` with your AWS IAM Account's Secret Access Key (or better a dedicated Jenkins IAM Account)
 - Create Secret File with the id `aws-iam-authenticator-config` with your updated `aws-iam-authenticator-config.yaml` from step b) acting as your .kube/config file
 
-**Configure Jenkins/file**
+**Configure Jenkins Plugins**
 - Add Maven Plugin under Manage Jenkins -> Tools -> Maven and name it Maven.
-- Change DOCKER_HUB_REPO_URL in Jenkins UI Parameters or the Jenkinsfile to your own
+
+**Install aws cli in jenkins docker container**
+```bash
+ssh jenkins-runner@172.105.75.118
+docker exec -u root -it jenkins-dind bash
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+./aws/install
+exit
+```
 
 #### c. Create multibranch Jenkins Pipeline with this repository as source and Jenkinsfile located in java-app/Jenkinsfile
 
@@ -288,7 +296,9 @@ cat ~/.kube/config
 
 #### e.
 
-
+TODO:
+library identifier: '11-devops-bootcamp__kubernetes_aws_eks.git@development', retriever: modernSCM( auf main
 
 </details>
+
 -----
