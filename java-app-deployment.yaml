@@ -25,7 +25,7 @@ spec:
       containers:
       - name: java-app-container
         image: ${JAVA_IMG_NAME}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         securityContext:
@@ -61,11 +61,11 @@ metadata:
   labels:
     app: java-app
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: java-app
   ports:
   - protocol: TCP
-    port: 8080
+    port: 80
     targetPort: 8080
     #nodePort: 30001

@@ -116,10 +116,12 @@ pipeline {
                         --from-file=.dockerconfigjson=/home/cli-user/.docker/config.json \
                         --type=kubernetes.io/dockerconfigjson \
                         --kubeconfig /home/cli-user/.kube/config
-                    kubectl apply -f nginx-deployment.yaml \
-                        --kubeconfig /home/cli-user/.kube/config
+
                     export JAVA_IMG_NAME="${env.AWS_ECR_REPO_URL}:java-app-${env.VERSION_NUM}"
                     envsubst < java-app-deployment.yaml | kubectl apply -f - --kubeconfig /home/cli-user/.kube/config
+
+                    kubectl apply -f java-app-ingress.yaml \
+                        --kubeconfig /home/cli-user/.kube/config
                     """
                 }
             }
@@ -133,7 +135,7 @@ pipeline {
 
                         sh "git remote set-url origin https://${USER}:${PASS}@github.com/hangrybear666/11-devops-bootcamp__kubernetes_aws_eks.git"
                         sh 'git add java-app/pom.xml'
-                        sh 'git commit -m "Jenkins Bot: java-app version bump"'
+                        sh 'git commit -m "ci-cd bot: java-app version bump"'
                         sh 'git push origin HEAD:main'
                     }
                 }

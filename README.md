@@ -294,12 +294,16 @@ exit
 
 - Replace the environment variables in `java-app/Jenkinsfile` with your own repositories (Docker Hub / ECR)
 
-#### d. Run the pipeline and check your EKS cluster to find out java-app DNS Name (service external ip)
+#### d. Install nginx-ingress-controller via helm in your cluster and note down the LoadBalancer DNSName
 
 ```bash
-kubectl get svc
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+helm install nginx-ingress ingress-nginx/ingress-nginx --version 4.11.2
 ```
+- **Important** Once the cluster has successfully launched the ingress controller, query the DNS Name and add it to `java-app-ingress.yaml` under `spec.rules.host`
 
+#### e. Run the pipeline and navigate to your Ingress Controller external LoadBalancer DNS Name to see the java app in action
 
 </details>
 
