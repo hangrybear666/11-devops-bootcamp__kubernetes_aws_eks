@@ -256,14 +256,7 @@ eksctl create cluster \
 <details closed>
 <summary><b>5. Integrate EKS cluster into a Jenkins CI/CD pipeline via custom Docker Image with aws & k8s dependencies installed</b></summary>
 
-#### a. Build and Push a Docker container to ECR that includes aws-iam-authenticator and kubectl for jenkins to use as an agent
-```bash
-docker build -f Dockerfile -t aws-iam-auth-k8s:0.1 .
-docker tag aws-iam-auth-k8s:0.1 010928217051.dkr.ecr.eu-central-1.amazonaws.com/k8s-imgs:aws-iam-auth-k8s-0.1
-docker push 010928217051.dkr.ecr.eu-central-1.amazonaws.com/k8s-imgs:aws-iam-auth-k8s-0.1
-```
-
-#### b. Retrieve information about your cluster and add it to the aws-iam-auth config file
+#### a. Retrieve information about your cluster and add it to the aws-iam-auth config file
 - Change the endpoint url in `aws-iam-authenticator-config.yaml` at `clusters.cluster.server` to your own after retrieving it in the aws cli
 - Change the cluster name at the bottom under args in case you named your cluster something else other than in step 4c)
 - Retrieve `certificate-authority-data` from your kube/config that has been set up by eksctl after cluster creation and add it to `clusters.cluster.certificate-authority-data`
@@ -275,7 +268,7 @@ aws eks describe-cluster --name aws-eksctl-cluster --query 'cluster.endpoint'
 cat ~/.kube/config
 ```
 
-#### c. Configure Credentials on Jenkins for AWS, Git, Docker Hub, and Kubernetes
+#### b. Configure Credentials on Jenkins for AWS, Git, Docker Hub, and Kubernetes
 
 **Create Secrets**
 - Create Username:Password with the id `docker-hub-repo` containing your user and API Token as password
@@ -289,16 +282,12 @@ cat ~/.kube/config
 - Add Maven Plugin under Manage Jenkins -> Tools -> Maven and name it Maven.
 - Change DOCKER_HUB_REPO_URL in Jenkins UI Parameters or the Jenkinsfile to your own
 
-#### d. Create multibranch Jenkins Pipeline with this repository as source and Jenkinsfile located in java-app/Jenkinsfile
+#### c. Create multibranch Jenkins Pipeline with this repository as source and Jenkinsfile located in java-app/Jenkinsfile
 
 - Replace the environment variables in `java-app/Jenkinsfile` with your own repositories (Docker Hub / ECR)
 
 #### e.
 
-```bash
-#debug
-ssh jenkins-runner@172.105.75.118
-```
 
 
 </details>
