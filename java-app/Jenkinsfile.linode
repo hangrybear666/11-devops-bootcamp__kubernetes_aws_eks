@@ -1,0 +1,131 @@
+#!/user/bin/env groovy
+
+library identifier: '11-devops-bootcamp__kubernetes_aws_eks.git@main', retriever: modernSCM(
+    scm: [$class: 'GitSCMSource',
+    credentialsId: 'git-creds',
+    remote: 'https://github.com/hangrybear666/11-devops-bootcamp__kubernetes_aws_eks.git',
+    traits: [gitBranchDiscovery()]],
+    libraryPath: 'jenkins-shared-library/')
+
+pipeline {
+    agent any
+    tools {
+        maven 'Maven'
+    }
+    environment {
+        LINODE_SERVER_URL="https://26d73faa-6596-4a52-978c-92e5478b7cd2.eu-central-2.linodelke.net"
+        DOCKER_HUB_REPO_URL='hangrybear666/personal-imgs'
+        AWS_ECR_REPO_URL='010928217051.dkr.ecr.eu-central-1.amazonaws.com/k8s-imgs'
+        AWS_IAM_AUTH_IMAGE_NAME='aws-iam-auth-k8s-0'
+    }
+    stages {
+        stage('init workspace') {
+            steps {
+                script {
+                    withCredentials([file(credentialsId: 'aws-iam-authenticator-config', variable: 'SECRET_FILE')]) {
+                        sh 'mkdir -p .kube'
+                        sh 'touch .kube/config'
+                        sh 'cat $SECRET_FILE > .kube/config'
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push aws-k8s Image to Docker Hub') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-repo', usernameVariable: 'USER', passwordVariable: 'PASS')]){
+                        // using jenkins shared library groovy scripts extended themselves by a groovy Docker class in /jenkins-shared-library
+                        buildImage("${env.DOCKER_HUB_REPO_URL}", "${env.AWS_IAM_AUTH_IMAGE_NAME}", "${env.BUILD_ID}")
+                        dockerLogin("${USER}", "${PASS}")
+                        dockerPush("${env.DOCKER_HUB_REPO_URL}", "${env.AWS_IAM_AUTH_IMAGE_NAME}", "${env.BUILD_ID}")
+                    }
+                }
+            }
+        }
+        stage('Increment Java App Version') {
+            steps {
+                dir("java-app") {
+                    script {
+                        echo 'incrementing app version...'
+                        sh 'mvn build-helper:parse-version versions:set \
+                            -DnewVersion=\\\${parsedVersion.majorVersion}.\\\${parsedVersion.minorVersion}.\\\${parsedVersion.nextIncrementalVersion} \
+                            versions:commit'
+                        def matcher = readFile('pom.xml') =~ '<version>(.+)</version>'
+                        def version = matcher[0][1]
+                        env.VERSION_NUM = "$version-$BUILD_NUMBER"
+                    }
+                }
+            }
+        }
+        stage('Build Java App JAR') {
+            steps {
+                dir("java-app") {
+                    script {
+                        // using jenkins shared library groovy scripts in /jenkins-shared-library/vars
+                        buildJar()
+                    }
+                }
+            }
+        }
+        stage('Build & Push Java App Image to ECR') {
+            environment {
+                AWS_ACCESS_KEY_ID = credentials('aws_access_key_id')
+                AWS_SECRET_ACCESS_KEY = credentials('aws_secret_access_key')
+            }
+            steps {
+                dir("java-app") {
+                    script {
+                        sh """
+                        aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+                        aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+                        aws configure set region eu-central-1
+                        aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin ${env.AWS_ECR_REPO_URL}
+                        docker build -t java-app-${env.VERSION_NUM} .
+                        docker tag java-app-${env.VERSION_NUM} ${env.AWS_ECR_REPO_URL}:java-app-${env.VERSION_NUM}
+                        docker push ${env.AWS_ECR_REPO_URL}:java-app-${env.VERSION_NUM}
+                        """
+                    }
+                }
+            }
+        }
+        stage('Deploy to Linode Kubernetes Engine') {
+            steps {
+                script {
+                    withKubeConfig([credentialsId: 'linode-kube-config', serverUrl: "${env.LINODE_SERVER_URL}"]) {
+                        sh """
+                        cat ${WORKSPACE}/.docker/config.json
+
+                        kubectl delete secret docker-config \
+                            --ignore-not-found
+                        kubectl create secret generic docker-config \
+                            --from-file=.dockerconfigjson=/var/jenkins_home/.docker/config.json \
+                            --type=kubernetes.io/dockerconfigjson
+
+                        export JAVA_IMG_NAME="${env.AWS_ECR_REPO_URL}:java-app-${env.VERSION_NUM}"
+                        envsubst < java-app-deployment.yaml | kubectl apply -f -
+
+                        kubectl apply -f java-app-ingress-linode.yaml
+                        """
+                    }
+                }
+            }
+        }
+        stage('Commit version update'){
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'git-creds', passwordVariable: 'PASS', usernameVariable: 'USER')]){
+                        sh 'git config --global user.email "jenkins@example.com"'
+                        sh 'git config --global user.name "jenkins"'
+
+                        sh "git remote set-url origin https://${USER}:${PASS}@github.com/hangrybear666/11-devops-bootcamp__kubernetes_aws_eks.git"
+                        sh 'git add java-app/pom.xml'
+                        sh 'git commit -m "ci-cd bot: java-app version bump"'
+                        sh 'git push origin HEAD:main'
+                    }
+                }
+            }
+        }
+    }
+}
+

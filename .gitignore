@@ -1,2 +1,3 @@
 env-aws-iam-authenticator-config.yaml
 .kube
+test-cluster-kubeconfig.yaml

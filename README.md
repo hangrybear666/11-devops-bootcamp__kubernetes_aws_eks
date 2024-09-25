@@ -7,10 +7,13 @@ In this chapter we provision and use an AWS EKS cluster via the AWS Management C
 2. Create an EC2 NodeGroup with associated IAM rules, a deployed autoscaler and test scale up & scale down
 3. Create Serverless Fargate Managed Pods with IAM Role and pod selector criteria
 4. Provision the EKS cluster with NodeGroup (from step 1&2) with a single eksctl CLI tool command
-5. Integrate EKS cluster into a Jenkins CI/CD pipeline via custom Docker Image with aws & k8s dependencies installed
+5. Integrate AWS EKS cluster into a Jenkins CI/CD pipeline via custom Docker Image with aws & k8s dependencies installed
 
 <b><u>The exercise projects are:</u></b>
 1. wip
+
+<b><u>The bonus projects are:</u></b>
+1. Integrate Linode EKS cluster into a Jenkins CI/CD pipeline with simple Plugin and kubeconfig file
 
 ## Setup
 
@@ -254,7 +257,7 @@ eksctl create cluster \
 -----
 
 <details closed>
-<summary><b>5. Integrate EKS cluster into a Jenkins CI/CD pipeline via custom Docker Image with aws & k8s dependencies installed</b></summary>
+<summary><b>5. Integrate AWS EKS cluster into a Jenkins CI/CD pipeline via custom Docker Image with aws & k8s dependencies installed</b></summary>
 
 #### a. Retrieve information about your cluster and add it to the aws-iam-auth config file
 - Change the endpoint url in `aws-iam-authenticator-config.yaml` at `clusters.cluster.server` to your own after retrieving it in the aws cli
@@ -304,6 +307,56 @@ helm install nginx-ingress ingress-nginx/ingress-nginx --version 4.11.2
 - **Important** Once the cluster has successfully launched the ingress controller, query the DNS Name and add it to `java-app-ingress.yaml` under `spec.rules.host`
 
 #### e. Run the pipeline and navigate to your Ingress Controller external LoadBalancer DNS Name to see the java app in action
+
+</details>
+
+-----
+
+
+## Usage (bonus projects)
+
+<details closed>
+<summary><b>1. Integrate Linode EKS cluster into a Jenkins CI/CD pipeline with simple Plugin and kubeconfig file</b></summary>
+
+
+#### a. Follow the Jenkins Server Setup steps from demo project 5 first.
+
+#### b. Create an Account on the Linode Cloud and then Create a Kubernetes Cluster
+
+*Note:* See https://cloud.linode.com/kubernetes/clusters
+- Name it `test-cluster` and put it in your Region without High Availability (HA) Control Plane to save costs.
+- Adding 3 Nodes with 2GB each on a shared CPU is sufficient.
+- Once the cluster is running, download `test-cluster-kubeconfig.yaml`. If your file is named differently, add it to `.gitignore` as it contains sensitive data.
+
+#### c. Install Kubernetes CLI Plugin on your Jenkins Server and Add kubeconfig Credential and Install Kubectl on your Jenkins Server
+
+- Dashboard -> Manage Jenkins -> Plugins -> Kubernetes CLI Version 1.12.1
+- Create Secret File with the id `linode-kube-config` with your updated `test-cluster-kubeconfig.yaml` from step b) acting as your .kube/config file
+
+**Install kubectl in jenkins docker container**
+```bash
+ssh jenkins-runner@172.105.75.118
+docker exec -u root -it jenkins-dind bash
+curl -LO "https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl" && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+exit
+```
+
+#### d.Create Jenkins Pipeline with this repository as source and Jenkinsfile located in java-app/Jenkinsfile.linode and add your cluster url
+
+- Add your Linode Cluster API Endpoint URL to `Jenkinsfile.linode` in the environment block under `LINODE_SERVER_URL` without its port
+
+#### e. Install nginx-ingress-controller via helm in your cluster and note down the LoadBalancer DNSName
+
+```bash
+sudo chmod 400 test-cluster-kubeconfig.yaml
+export KUBECONFIG=test-cluster-kubeconfig.yaml
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+helm install nginx-ingress ingress-nginx/ingress-nginx --version 4.11.2
+```
+- **Important** Once the cluster has successfully launched the ingress controller, navigate to your Linode NodeBalancer and extract the DNS hostname to add to `java-app-ingress-linode.yaml` under `spec.rules.host`
+
+#### f. Run the pipeline and navigate to your Ingress Controller external LoadBalancer DNS Name to see the java app in action
 
 </details>
 
