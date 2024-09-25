@@ -290,14 +290,16 @@ unzip awscliv2.zip
 exit
 ```
 
-#### c. Create multibranch Jenkins Pipeline with this repository as source and Jenkinsfile located in java-app/Jenkinsfile
+#### c. Create Jenkins Pipeline with this repository as source and Jenkinsfile located in java-app/Jenkinsfile
 
 - Replace the environment variables in `java-app/Jenkinsfile` with your own repositories (Docker Hub / ECR)
 
-#### e.
+#### d. Run the pipeline and check your EKS cluster to find out java-app DNS Name (service external ip)
 
-TODO:
-library identifier: '11-devops-bootcamp__kubernetes_aws_eks.git@development', retriever: modernSCM( auf main
+```bash
+kubectl get svc
+```
+
 
 </details>
 
