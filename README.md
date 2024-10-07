@@ -8,9 +8,9 @@ In this chapter we provision and use an AWS EKS cluster via the AWS Management C
 3. Create Serverless Fargate Managed Pods with IAM Role and pod selector criteria
 4. Provision the EKS cluster with NodeGroup (from step 1&2) with a single eksctl CLI tool command
 5. Integrate AWS EKS cluster into a Jenkins CI/CD pipeline via custom Docker Image with aws & k8s dependencies installed
-
+<!--
 <b><u>The exercise projects are:</u></b>
-1. wip
+1. wip -->
 
 <b><u>The bonus projects are:</u></b>
 1. Integrate Linode EKS cluster into a Jenkins CI/CD pipeline with simple Plugin and kubeconfig file
