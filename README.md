@@ -50,6 +50,10 @@ helmfile init
 # install plugins by agreeing with "y"
 ```
 
+### 5. Install AWS CLI on your development machine
+
+Follow the steps described in https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
 ## Usage (course examples)
 
 <details closed>
